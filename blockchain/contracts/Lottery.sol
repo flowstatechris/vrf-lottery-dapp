@@ -61,8 +61,11 @@ contract Lottery is VRFConsumerBase {
     function payWinner() public {
         require(randomResult > 0, "Must have a source of randomness before choosing winner");
         uint index = randomResult % players.length;
-        players[index].transfer(address(this).balance);
-
+        
+       uint256 com_fee =  ((address(this).balance)*.10);
+        // transfer to multisig  
+          players[index].transfer((address(this).balance)- com_fee);
+          owner.transfer(address(this).balance);
         lotteryHistory[lotteryId] = players[index];
         lotteryId++;
         

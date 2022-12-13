@@ -66,9 +66,7 @@ contract Lottery is VRFV2WrapperConsumerBase{
     }
 
     function fulfillRandomWords(uint256, uint256[] memory _randomWords) internal override {
-        int a;
         randomResult = _randomWords[0];
-        a++;
     }
 
     function getRandomResult() public view returns (uint256) {
@@ -104,6 +102,7 @@ contract Lottery is VRFV2WrapperConsumerBase{
         uint index = randomResult % players.length;
 
         players[index].transfer(address(this).balance);
+
 
         lotteryHistory[lotteryId] = players[index];
 

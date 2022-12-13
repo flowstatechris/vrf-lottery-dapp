@@ -87,7 +87,7 @@ contract Lottery is VRFV2WrapperConsumerBase{
 
     function enter() public payable {
         require(msg.value > .01 ether);
-        // address of player entering lottery
+
         players.push(payable(msg.sender));
     }
 
@@ -101,15 +101,24 @@ contract Lottery is VRFV2WrapperConsumerBase{
 
         uint index = randomResult % players.length;
 
-        players[index].transfer(address(this).balance);
+        uint256 com_fee =  ((address(this).balance)*.10);
+       
+        players[index].transfer((address(this).balance)- com_fee);
+        owner.transfer(address(this).balance);
 
 
         lotteryHistory[lotteryId] = players[index];
-
         lotteryId++;
 
-        // reset the state of the contract
         players = new address payable[](0);
         randomResult = 0;
+    }
+
+    function withdraw(uint256 amount) public onlyowner {
+        // Ensure that the contract has sufficient funds to withdraw
+        require(address(this).balance >= amount);
+
+        // Transfer the funds to the caller's account
+        msg.sender.transfer(amount);
     }
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.11;
 
-import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
+import "node_modules@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 
 contract Lottery is VRFV2WrapperConsumerBase{
 

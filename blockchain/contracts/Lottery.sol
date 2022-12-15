@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.11;
+pragma solidity ^0.8.17;
 
-import "node_modules@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
+import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
+
 
 contract Lottery is VRFV2WrapperConsumerBase{
 
-    address public owner;
+    address payable public owner;
 
     address payable[] public players;
 
@@ -42,7 +43,7 @@ contract Lottery is VRFV2WrapperConsumerBase{
  constructor()
         VRFV2WrapperConsumerBase(linkAddress, wrapperAddress)
     {
-        owner = msg.sender;
+        owner = payable(msg.sender);
         lotteryId = 1;
     }
 
@@ -95,15 +96,17 @@ contract Lottery is VRFV2WrapperConsumerBase{
         getRandomNumber();
     }
 
-    function payWinner() public {
+    function payWinner() public onlyowner { 
 
         require(randomResult > 0, "Must have a source of randomness before choosing winner");
 
         uint index = randomResult % players.length;
 
-        uint256 com_fee =  ((address(this).balance)*.10);
+        uint256 test_fee =  (address(this).balance);
+
+        uint256 com_fee = (test_fee * 10)/100;
        
-        players[index].transfer((address(this).balance)- com_fee);
+        players[index].transfer((address(this).balance) - com_fee);
         owner.transfer(address(this).balance);
 
         lotteryHistory[lotteryId] = players[index];
@@ -118,6 +121,6 @@ contract Lottery is VRFV2WrapperConsumerBase{
         require(address(this).balance >= amount);
 
         // Transfer the funds to the caller's account
-        msg.sender.transfer(amount);
+        owner.transfer(amount);
     }
 }

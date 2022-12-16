@@ -1,24 +1,27 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.17;
 
 import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 
-
 contract Lottery is VRFV2WrapperConsumerBase{
 
-    address payable public owner;
+    address payable public lotteryOperator;
 
     address payable[] public players;
 
     uint public lotteryId;
 
-    uint public randomId;
+    uint256 public lottoPot;
+
+    mapping(address => uint256) public winnings; //maps winners to their winnings 
 
     mapping (uint => address payable) public lotteryHistory; //array holding previous lottery wiiners
 
+    uint256 public operatorTotalCommission = 0;
+
     uint internal fee = 2 * 10 ** 18; // VRF fee
 
-    uint256 public randomResult;
+    uint256 public randomResult; // random m=number generated from VRF
 
     // Depends on the number of requested values that you want sent to the
     // fulfillRandomWords() function. Test and adjust
@@ -43,13 +46,22 @@ contract Lottery is VRFV2WrapperConsumerBase{
  constructor()
         VRFV2WrapperConsumerBase(linkAddress, wrapperAddress)
     {
-        owner = payable(msg.sender);
-        lotteryId = 1;
+        lotteryOperator = payable(msg.sender);
+        lotteryId = 0;
     }
 
-    modifier onlyowner() {
-        require(msg.sender == owner);
+    modifier isOperator() {
+        require((msg.sender == lotteryOperator), "Caller is not the lottery operator");
         _;
+    }
+
+    modifier isWinner() {
+        require(IsWinner(), "Caller is not a winner");
+        _;
+    } 
+
+    function swapOwner(address payable newOwner) public isOperator {
+        lotteryOperator = newOwner;
     }
 
     //note: VRF requires the gaslimit on the requestRandomness() call to be 400,000
@@ -90,37 +102,75 @@ contract Lottery is VRFV2WrapperConsumerBase{
         require(msg.value > .01 ether);
 
         players.push(payable(msg.sender));
+        lottoPot += msg.value;
     }
 
-    function pickWinner() public onlyowner {
+    function checkWinningsAmount() public view returns (uint256) {
+        address payable winner = payable(msg.sender);
+
+        uint256 reward2Transfer = winnings[winner];
+
+        return reward2Transfer;
+    }
+
+    function pickWinner() public isOperator {
         getRandomNumber();
     }
 
-    function payWinner() public onlyowner { 
+    function payWinner() public isOperator { 
 
         require(randomResult > 0, "Must have a source of randomness before choosing winner");
 
         uint index = randomResult % players.length;
 
-        uint256 test_fee =  (address(this).balance);
+        uint256 currPot = lottoPot;
 
-        uint256 com_fee = (test_fee * 10)/100;
+        uint256 com_fee = (currPot * 10)/100;
        
-        players[index].transfer((address(this).balance) - com_fee);
-        owner.transfer(address(this).balance);
+        address winner = players[index];
 
         lotteryHistory[lotteryId] = players[index];
-        lotteryId++;
 
+        winnings[winner] += currPot - com_fee;
+
+        operatorTotalCommission += com_fee;
+
+        lottoPot = 0;
         players = new address payable[](0);
         randomResult = 0;
     }
 
-    function withdraw(uint256 amount) public onlyowner {
-        // Ensure that the contract has sufficient funds to withdraw
+    function withdraw(uint256 amount) public payable isOperator {
         require(address(this).balance >= amount);
 
-        // Transfer the funds to the caller's account
-        owner.transfer(amount);
+        lotteryOperator.transfer(amount);
+    }
+
+    function withdrawLink(uint256 amount) public payable isOperator {
+        require(LINK.balanceOf(address(this)) >= 0, "Not enough LINK in contract to withdraw");
+
+        LINK.transfer(lotteryOperator, amount);
+    }
+
+    function withdrawWinnings() public isWinner {
+        address payable winner = payable(msg.sender);
+
+        uint256 reward2Transfer = winnings[winner];
+        winnings[winner] = 0;
+
+        winner.transfer(reward2Transfer);
+    }
+
+     function withdrawCommission() public isOperator {
+        address payable operator = payable(msg.sender);
+
+        uint256 commission2Transfer = operatorTotalCommission;
+        operatorTotalCommission = 0;
+
+        operator.transfer(commission2Transfer);
+    }
+
+    function IsWinner() public view returns (bool) {
+        return winnings[msg.sender] > 0;
     }
 }

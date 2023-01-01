@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.17; 
+pragma solidity ^0.8.17;
 
 import "@chainlink/contracts/src/v0.8/VRFV2WrapperConsumerBase.sol";
 
@@ -19,9 +19,11 @@ contract Lottery is VRFV2WrapperConsumerBase{
 
     uint256 public operatorTotalCommission = 0;
 
+    uint256 public vrf_matic = 0;
+
     uint internal fee = 2 * 10 ** 18; // VRF fee
 
-    uint256 public randomResult; // random m=number generated from VRF
+    uint256 public randomResult; // random number generated from VRF
 
     // Depends on the number of requested values that you want sent to the
     // fulfillRandomWords() function. Test and adjust
@@ -36,12 +38,12 @@ contract Lottery is VRFV2WrapperConsumerBase{
     // For this example, retrieve 2 random values in one request.
     // Cannot exceed VRFV2Wrapper.getConfig().maxNumWords.
     uint32 numWords = 1;
+    
+    // Address LINK - hardcoded for Polygon Mainnet
+    address linkAddress = 0xb0897686c545045aFc77CF20eC7A532E3120E0F1;
 
-    // Address LINK - hardcoded for Goerli
-    address linkAddress = 0x326C977E6efc84E512bB9C30f76E30c160eD06FB;
-
-    // address WRAPPER - hardcoded for Goerli
-    address wrapperAddress = 0x708701a1DfF4f478de54383E49a627eD4852C816;
+    // address WRAPPER - hardcoded for Polygon Mainnet
+    address wrapperAddress = 0x4e42f0adEB69203ef7AaA4B7c414e5b1331c14dc;
 
  constructor()
         VRFV2WrapperConsumerBase(linkAddress, wrapperAddress)
@@ -60,12 +62,14 @@ contract Lottery is VRFV2WrapperConsumerBase{
         _;
     } 
 
+    event lowLink();
+
     function swapOwner(address payable newOwner) public isOperator {
         lotteryOperator = newOwner;
     }
 
     //note: VRF requires the gaslimit on the requestRandomness() call to be 400,000
-    function getRandomNumber() public returns (uint256 requestId) {
+    function getRandomNumber() public isOperator returns (uint256 requestId) {
 
         require(LINK.balanceOf(address(this)) >= fee, "Not enough LINK in contract");
 
@@ -74,6 +78,10 @@ contract Lottery is VRFV2WrapperConsumerBase{
             requestConfirmations,
             numWords
         );
+
+        if(LINK.balanceOf(address(this)) <= fee) {
+            emit lowLink();
+        }
 
         return requestId;
     }
@@ -90,8 +98,8 @@ contract Lottery is VRFV2WrapperConsumerBase{
         return lotteryHistory[lottery];
     }
 
-    function getBalance() public view returns (uint) {
-        return address(this).balance;
+    function getPot() public view returns (uint) {
+        return lottoPot;
     }
 
     function getPlayers() public view returns (address payable[] memory) {
@@ -113,17 +121,21 @@ contract Lottery is VRFV2WrapperConsumerBase{
         return reward2Transfer;
     }
 
-    function pickWinner() public isOperator {
-        getRandomNumber();
+    function checkCommissionAmount() public view returns (uint256) {
+        return operatorTotalCommission;
     }
 
-    function payWinner() public isOperator { 
+    function pickWinner() public isOperator { 
 
         require(randomResult > 0, "Must have a source of randomness before choosing winner");
 
         uint index = randomResult % players.length;
 
         uint256 currPot = lottoPot;
+
+        uint256 vrf_fee = 3 ether;
+
+        currPot -= vrf_fee;
 
         uint256 com_fee = (currPot * 10)/100;
        
@@ -134,6 +146,8 @@ contract Lottery is VRFV2WrapperConsumerBase{
         winnings[winner] += currPot - com_fee;
 
         operatorTotalCommission += com_fee;
+
+        vrf_matic += vrf_fee;
 
         lottoPot = 0;
         players = new address payable[](0);
@@ -146,13 +160,13 @@ contract Lottery is VRFV2WrapperConsumerBase{
         lotteryOperator.transfer(amount);
     }
 
-    function withdrawLink(uint256 amount) public payable isOperator {
+    function withdrawLink() public payable isOperator {
         require(LINK.balanceOf(address(this)) >= 0, "Not enough LINK in contract to withdraw");
 
-        LINK.transfer(lotteryOperator, amount);
+        LINK.transfer(lotteryOperator, LINK.balanceOf(address(this)));
     }
 
-    function withdrawWinnings() public isWinner {
+    function withdrawWinnings() public payable isWinner {
         address payable winner = payable(msg.sender);
 
         uint256 reward2Transfer = winnings[winner];
@@ -161,13 +175,22 @@ contract Lottery is VRFV2WrapperConsumerBase{
         winner.transfer(reward2Transfer);
     }
 
-     function withdrawCommission() public isOperator {
+    function withdrawCommission() public payable isOperator {
         address payable operator = payable(msg.sender);
 
         uint256 commission2Transfer = operatorTotalCommission;
         operatorTotalCommission = 0;
 
         operator.transfer(commission2Transfer);
+    }
+
+    function withdrawVRF() public payable isOperator {
+        address payable operator = payable(msg.sender);
+
+        uint256 vrf_fee = vrf_matic;
+        vrf_matic = 0;
+
+        operator.transfer(vrf_fee);
     }
 
     function IsWinner() public view returns (bool) {

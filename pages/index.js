@@ -27,7 +27,7 @@ export default function Home() {
   }
 
   const getPot = async () => {
-    const pot = await lcContract.methods.getBalance().call()
+    const pot = await lcContract.methods.getPot().call()
     setLotteryPot(web3.utils.fromWei(pot, 'ether'))
   }
 
@@ -201,7 +201,7 @@ export default function Home() {
                               return <div className="history-entry mt-3" key={item.id}>
                                 <div>Lottery #{item.id} winner:</div>
                                 <div>
-                                  <a href={`https://etherscan.io/address/${item.address}`} target="_blank">
+                                  <a href={`https://polygonscan.com/.io/address/${item.address}`} target="_blank">
                                     {item.address}
                                   </a>
                                 </div>
@@ -238,7 +238,7 @@ export default function Home() {
                     <div className="card-content">
                       <div className="content">
                         <h2>Pot</h2>
-                        <p>{lotteryPot} Ether</p>
+                        <p>{lotteryPot} MATIC</p>
                       </div>
                     </div>
                   </div>

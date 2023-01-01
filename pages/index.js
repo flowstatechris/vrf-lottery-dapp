@@ -222,7 +222,7 @@ export default function Home() {
                           {
                             (lotteryPlayers && lotteryPlayers.length > 0) && lotteryPlayers.map((player, index) => {
                               return <li key={`${player}-${index}`}>
-                                <a href={`https://etherscan.io/address/${player}`} target="_blank">
+                                <a href={`https://polygonscan.io/address/${player}`} target="_blank">
                                   {player}
                                 </a>
                               </li>
